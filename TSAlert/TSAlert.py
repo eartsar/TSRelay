@@ -236,7 +236,7 @@ class TeamSpeak:
 
         while True:
             try:
-                message = self.connection.read_until('\n\r', 60)
+                message = self.connection.read_until('\n\r', 30)
                 try:
                     self.decode(message)['invokername']
                 except: 

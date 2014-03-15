@@ -4,9 +4,8 @@ import time
 import urllib2
 import hashlib
 import re
-
-class ServerFullError(Exception):
-        pass
+import pyttsx
+engine = pyttsx.init()
 
 ReplyFlagsRE = re.compile('<INPUT NAME=(.+?) TYPE=(.+?) VALUE="(.*?)">', re.IGNORECASE | re.MULTILINE)
 
@@ -112,6 +111,9 @@ class ChatBack(object):
         elif self.mode == 3:
             self.ts.sendServerText(msg, self.cid)
 
+        engine.say(msg)
+        engine.runAndWait()
+
     def registerevent(self):
         self.ts.servernotifyregister(self.event, self.cid)
 
@@ -120,6 +122,10 @@ class ChatBack(object):
         print("%s: %s" % (message['invokername'], message['msg']))
 
         if message['invokername'] == self.nick:
+            return None
+
+        if  message['msg'].startswith("speak:"):
+            self.reply(message['msg'].replace("speak:",""))
             return None
 
         if message['msg'] == "hi bot":
@@ -168,29 +174,26 @@ if __name__ == "__main__":
     ts3 = Teamspeak.TeamSpeak(host, username=username, password=password)
     ts3.connect()
     if ts3.connected():
-        try:        
-            if mode == Teamspeak.TextMessageTargetMode.SERVER.value:
-                print 'getting Servers'
-                #items = ts3.getServers()
-                items = []
-                name = 'virtualserver_id'
-                cid = 'sid'
-            elif mode == Teamspeak.TextMessageTargetMode.CHANNEL.value:
-                print 'getting Channels'
-                items = ts3.getChannels()
-                name = 'channel_name'
-                cid = "cid"
-            elif mode == Teamspeak.TextMessageTargetMode.CLIENT.value:
-                print 'getting Clients'
-                items = ts3.getClients()
-                name = 'client_nickname'
-                cid = "clid"
-            else:
-                print("%s is invalid" % connectto)
-                ts3.disconnect()
-                exit()
-        finally:
+        if mode == Teamspeak.TextMessageTargetMode.SERVER.value:
+            print 'getting Servers'
+            #items = ts3.getServers()
+            items = []
+            name = 'virtualserver_id'
+            cid = 'sid'
+        elif mode == Teamspeak.TextMessageTargetMode.CHANNEL.value:
+            print 'getting Channels'
+            items = ts3.getChannels()
+            name = 'channel_name'
+            cid = "cid"
+        elif mode == Teamspeak.TextMessageTargetMode.CLIENT.value:
+            print 'getting Clients'
+            items = ts3.getClients()
+            name = 'client_nickname'
+            cid = "clid"
+        else:
+            print("%s is invalid" % connectto)
             ts3.disconnect()
+            exit()
 
         for item in items:
             print '['+item[cid]+']\t'+item[name]
