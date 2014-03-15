@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>4cbc23c0-b6ac-4b5e-a4cf-695f50f11b07</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>TSAlert.py</StartupFile>
+    <StartupFile>TS3Bot.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -22,6 +22,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="TS3Bot.py" />
     <Compile Include="TSAlert.py" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
