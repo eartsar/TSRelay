@@ -87,23 +87,7 @@ namespace ACT_Plugin
             pluginScreenSpace.Controls.Add(this);
             this.Dock = DockStyle.Fill;
 
-            int dcIndex = -1;   // Find the Data Correction node in the Options tab
-            for (int i = 0; i < ActGlobals.oFormActMain.OptionsTreeView.Nodes.Count; i++)
-            {
-                if (ActGlobals.oFormActMain.OptionsTreeView.Nodes[i].Text == "Data Correction")
-                    dcIndex = i;
-            }
-            if (dcIndex != -1)
-            {
-                // Add our own node to the Data Correction node
-                optionsNode = ActGlobals.oFormActMain.OptionsTreeView.Nodes[dcIndex].Nodes.Add("EQ2 English Settings");
-                // Register our user control(this) to our newly create node path.  All controls added to the list will be laid out left to right, top to bottom
-                ActGlobals.oFormActMain.OptionsControlSets.Add(@"Data Correction\EQ2 English Settings", new List<Control> { this });
-                Label lblConfig = new Label();
-                lblConfig.AutoSize = true;
-                lblConfig.Text = "Find the applicable options in the Options tab, Data Correction section.";
-                pluginScreenSpace.Controls.Add(lblConfig);  // This is a placeholder label for when the UserControl is removed from the plugins tab and shown in the Options tab
-            }
+            
 
 
             // Register the log read event
