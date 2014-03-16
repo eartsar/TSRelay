@@ -143,6 +143,9 @@ class TeamSpeak:
                 sleep(1)
             self.sendCommand(command, preRead, postRead)
 
+        if data == {}:
+            raise Exception("Malformed data!")
+
     def _sendCommand(self, command, preRead=0, postRead=0, timeout=None):
         """
         Send a command to the server and receive the output
@@ -364,7 +367,10 @@ class TeamSpeak:
                 raise Exception("Reply is %s" % reply)
 
     def whoami(self):
-        data, _ =  self.sendCommand("whoami")
+        data, reply =  self.sendCommand("whoami")
+
+        if type(reply) == dict and reply["id"] not in ['0']:
+            raise TS3Error(reply["id"], reply["msg"])
         return data
 
     def servernotifyregister(self, event, cid=None):

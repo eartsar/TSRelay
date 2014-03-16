@@ -100,6 +100,8 @@ class ChatBack(object):
     def reconnect(self):
         self.ts.connect()
         self.changeName(self.nick)
+        if self.mode == Teamspeak.TextMessageTargetMode.CHANNEL:
+            self.ts.moveMe(self.cid)
         self.registerevent()
 
     def reply(self, msg):
