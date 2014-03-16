@@ -23,7 +23,7 @@ namespace ACT_Plugin
     {
 
         #region Plugin Constants (Fill in your own here)
-        readonly string[] CHECKS = { "You cast Scathe", "You cast Flare" };
+        private LinkedList<string> checkedEvents;
         #endregion
         private TextBox queryIDTextBox;
         private TextBox queryPasswordTextBox;
@@ -35,7 +35,7 @@ namespace ACT_Plugin
         private Label queryPasswordLabel;
         private Button connectButton;
         private Button saveButton;
-        private OpenFileDialog openFileDialog1;
+        private OpenFileDialog eventFileDialog;
         private TextBox fileNameLabel;
         private Button browseButton;
 
@@ -77,7 +77,7 @@ namespace ACT_Plugin
             this.queryPasswordLabel = new System.Windows.Forms.Label();
             this.connectButton = new System.Windows.Forms.Button();
             this.saveButton = new System.Windows.Forms.Button();
-            this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
+            this.eventFileDialog = new System.Windows.Forms.OpenFileDialog();
             this.fileNameLabel = new System.Windows.Forms.TextBox();
             this.browseButton = new System.Windows.Forms.Button();
             this.SuspendLayout();
@@ -159,6 +159,7 @@ namespace ACT_Plugin
             this.connectButton.TabIndex = 8;
             this.connectButton.Text = "Connect Bot";
             this.connectButton.UseVisualStyleBackColor = true;
+            this.connectButton.Click += new System.EventHandler(this.connectButton_Click);
             // 
             // saveButton
             // 
@@ -168,10 +169,11 @@ namespace ACT_Plugin
             this.saveButton.TabIndex = 9;
             this.saveButton.Text = "Save Settings";
             this.saveButton.UseVisualStyleBackColor = true;
+            this.saveButton.Click += new System.EventHandler(this.saveButton_Click);
             // 
-            // openFileDialog1
+            // eventFileDialog
             // 
-            this.openFileDialog1.FileName = "openFileDialog1";
+            this.eventFileDialog.FileOk += new System.ComponentModel.CancelEventHandler(this.eventFileDialog_FileOk);
             // 
             // fileNameLabel
             // 
@@ -190,6 +192,7 @@ namespace ACT_Plugin
             this.browseButton.TabIndex = 11;
             this.browseButton.Text = "Browse...";
             this.browseButton.UseVisualStyleBackColor = true;
+            this.browseButton.Click += new System.EventHandler(this.browseButton_Click);
             // 
             // TSRelayPlugin
             // 
@@ -224,30 +227,144 @@ namespace ACT_Plugin
         private string loginPassword;
         private string queryHost;
 
+        private SettingsSerializer xmlSettings; // Used for saving the settings of the plugin
+
+        private Label lblStatus; // reference to ACT's status label
+
 
         public TSRelayPlugin()
         {
             InitializeComponent();
         }
 
-        string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TSRelay.config.xml");
+        private string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TSRelay.config.xml");
 
 
         #region IActPluginV1 Members
         public void InitPlugin(TabPage pluginScreenSpace, Label pluginStatusText)
         {
+            this.lblStatus = pluginStatusText;
+
+            checkedEvents = new LinkedList<string>();
             // This is the GUI related stuff
             pluginScreenSpace.Controls.Add(this);
             this.Dock = DockStyle.Fill;
 
-            this.loginID = "admin";
-            this.loginPassword = "r9serJRO";
-            this.queryHost = "198.199.86.84";
-            this.queryPort = 10011;
+
+            // Settings stuff
+            xmlSettings = new SettingsSerializer(this);
+            LoadSettings();
 
 
             // Register the log read event
             ActGlobals.oFormActMain.OnLogLineRead += new LogLineEventDelegate(oFormActMain_LogLineEvent);
+
+            lblStatus.Text = "Plugin Started";
+        }
+
+
+        public void DeInitPlugin()
+        {
+            // Unsubscribe from any events you listen to when exiting!
+            ActGlobals.oFormActMain.AfterCombatAction -= oFormActMain_AfterCombatAction;
+            ActGlobals.oFormActMain.OnLogLineRead -= oFormActMain_LogLineEvent;
+
+            lblStatus.Text = "Plugin Exited";
+        }
+        #endregion
+
+
+        /**
+         * This is the callback for checking lines against custom events.
+         **/
+        void oFormActMain_LogLineEvent(bool isImport, LogLineEventArgs logInfo)
+        {
+            string entry = logInfo.logLine;
+            foreach (string check in checkedEvents)
+            {
+                if (entry.Contains(check))
+                {
+                    qr.SendTextMessage(MessageTarget.Channel, this.honeypot_cid, "speak:" + check);
+                    break;
+                }
+            }
+
+        }
+
+        void oFormActMain_AfterCombatAction(bool isImport, CombatActionEventArgs actionInfo)
+        {
+            throw new NotImplementedException();
+        }
+
+
+
+        /**
+         * This is where we save the settings.
+         **/
+        void SaveSettings()
+        {
+            FileStream fs = new FileStream(settingsFile, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+            XmlTextWriter xWriter = new XmlTextWriter(fs, Encoding.UTF8);
+            xWriter.Formatting = Formatting.Indented;
+            xWriter.Indentation = 1;
+            xWriter.IndentChar = '\t';
+            xWriter.WriteStartDocument(true);
+            xWriter.WriteStartElement("Config");	// <Config>
+            xWriter.WriteStartElement("SettingsSerializer");	// <Config><SettingsSerializer>
+            xmlSettings.ExportToXml(xWriter);	// Fill the SettingsSerializer XML
+            xWriter.WriteEndElement();	// </SettingsSerializer>
+            xWriter.WriteEndElement();	// </Config>
+            xWriter.WriteEndDocument();	// Tie up loose ends (shouldn't be any)
+            xWriter.Flush();	// Flush the file buffer to disk
+            xWriter.Close();
+
+            lblStatus.Text = "Plugin settings saved.";
+        }
+
+
+
+        void LoadSettings()
+        {
+            xmlSettings.AddControlSetting(this.hostTextBox.Name, hostTextBox);
+            xmlSettings.AddControlSetting(this.portTextBox.Name, portTextBox);
+            xmlSettings.AddControlSetting(this.queryIDTextBox.Name, queryIDTextBox);
+            xmlSettings.AddControlSetting(this.queryPasswordTextBox.Name, queryPasswordTextBox);
+            xmlSettings.AddControlSetting(this.fileNameLabel.Name, fileNameLabel);
+
+
+            if (File.Exists(settingsFile))
+            {
+                FileStream fs = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                XmlTextReader xReader = new XmlTextReader(fs);
+
+                try
+                {
+                    while (xReader.Read())
+                    {
+                        if (xReader.NodeType == XmlNodeType.Element)
+                        {
+                            if (xReader.LocalName == "SettingsSerializer")
+                            {
+                                xmlSettings.ImportFromXml(xReader);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    //lblStatus.Text = "Error loading settings: " + ex.Message;
+                }
+                xReader.Close();
+            }
+        }
+
+
+        private void connectButton_Click(object sender, EventArgs e)
+        {
+            this.loginID = this.queryIDTextBox.Text;
+            this.loginPassword = this.queryPasswordTextBox.Text;
+            this.queryHost = this.hostTextBox.Text;
+            this.queryPort = Convert.ToUInt16(this.portTextBox.Text);
 
             // Connect to the TS Server
             SyncTcpDispatcher dispatcher = new SyncTcpDispatcher(queryHost, queryPort);
@@ -292,44 +409,37 @@ namespace ACT_Plugin
 
             // Send a message to the honeypot channel
             qr.SendTextMessage(MessageTarget.Channel, honeypot_cid, "ParseBot is connected to the honeypot.");
+
+            lblStatus.Text = "Plugin connected to TS query service.";
         }
 
 
-        public void DeInitPlugin()
+        private void saveButton_Click(object sender, EventArgs e)
         {
-            // Unsubscribe from any events you listen to when exiting!
-            ActGlobals.oFormActMain.AfterCombatAction -= oFormActMain_AfterCombatAction;
-            ActGlobals.oFormActMain.OnLogLineRead -= oFormActMain_LogLineEvent;
+            SaveSettings();
         }
-        #endregion
 
-
-        /**
-         * This is the callback for checking lines against custom events.
-         **/
-        void oFormActMain_LogLineEvent(bool isImport, LogLineEventArgs logInfo)
+        private void eventFileDialog_FileOk(object sender, CancelEventArgs e)
         {
-            string entry = logInfo.logLine;
-            foreach (string check in CHECKS)
+            this.fileNameLabel.Text = eventFileDialog.FileName;
+        }
+
+        private void browseButton_Click(object sender, EventArgs e)
+        {
+
+            DialogResult result = eventFileDialog.ShowDialog();
+            
+            if (result == DialogResult.OK)
             {
-                if (entry.Contains(check))
+                this.checkedEvents = new LinkedList<string>();
+                StreamReader reader = null;
+                reader = new StreamReader(eventFileDialog.OpenFile());
+                string line;
+                while ((line = reader.ReadLine()) != null)
                 {
-                    qr.SendTextMessage(MessageTarget.Channel, this.honeypot_cid, check);
-                    break;
+                    this.checkedEvents.AddLast(line);
                 }
             }
-
-        }
-
-        void oFormActMain_AfterCombatAction(bool isImport, CombatActionEventArgs actionInfo)
-        {
-            throw new NotImplementedException();
-        }
-
-
-        private void connectButton_Click(object sender, EventArgs e)
-        {
-            // TODO: We need to put the connect code here
         }
 
         
